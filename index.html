@@ -2,93 +2,106 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>HEIC to PDF</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400;62..125,700;62..125,900&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one narrow work column — drop zone, page list, output settings, action bar. */
+/* Layout: one print-like column of hard black rules; red marks only the one thing that matters at each moment. */
 :root {
-  --bg: #eef1f0;
-  --panel: #ffffff;
-  --ink: #17211f;
-  --muted: #5b6966;
-  --line: #d3dbd8;
-  --accent: #0f6b5c;
-  --accent-ink: #ffffff;
-  --accent-soft: #dcefe9;
-  --warn: #a4471b;
-  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --paper: #ffffff;
+  --ink: #0a0a0a;
+  --grey: #6b6b6b;
+  --rule: #0a0a0a;
+  --hair: #dcdcdc;
+  --red: #e10600;
+  --on-ink: #ffffff;
+  --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #111716; --panel: #1a2220; --ink: #e4ece9; --muted: #95a5a0; --line: #2d3a37;
-    --accent: #4cc2a9; --accent-ink: #06201b; --accent-soft: #173a33; --warn: #f09a6e;
-    color-scheme: dark;
+    --paper: #0a0a0a; --ink: #f5f5f5; --grey: #9a9a9a; --rule: #f5f5f5; --hair: #2e2e2e;
+    --red: #ff2b1f; --on-ink: #0a0a0a; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #111716; --panel: #1a2220; --ink: #e4ece9; --muted: #95a5a0; --line: #2d3a37;
-  --accent: #4cc2a9; --accent-ink: #06201b; --accent-soft: #173a33; --warn: #f09a6e;
-  color-scheme: dark;
+  --paper: #0a0a0a; --ink: #f5f5f5; --grey: #9a9a9a; --rule: #f5f5f5; --hair: #2e2e2e;
+  --red: #ff2b1f; --on-ink: #0a0a0a; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body {
-  margin: 0; background: var(--bg); color: var(--ink);
-  font: 16px/1.5 var(--font-body);
-  padding: 32px 16px 48px;
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 16px/1.5 var(--font-body);
+  padding: 40px 16px 56px;
 }
-main { max-width: 720px; margin: 0 auto; display: grid; gap: 20px; }
-h1 { font: 700 clamp(28px, 6vw, 40px)/1.1 var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
-header p { margin: 8px 0 0; color: var(--muted); max-width: 60ch; }
+main { max-width: 720px; margin: 0 auto; display: grid; gap: 24px; }
+header { border-bottom: 3px solid var(--rule); padding-bottom: 16px; }
+h1 {
+  font: 900 clamp(44px, 13vw, 88px)/0.9 var(--font-display); font-stretch: 75%;
+  margin: 0; text-transform: uppercase; letter-spacing: -0.02em; text-wrap: balance;
+}
+h1 .arrow { color: var(--red); }
+header p { margin: 14px 0 0; color: var(--grey); max-width: 58ch; }
 .drop {
-  border: 2px dashed var(--line); border-radius: 14px; background: var(--panel);
-  padding: 28px 20px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+  position: relative; display: grid; gap: 4px; justify-items: start;
+  border: 2px solid var(--rule); padding: 24px 20px; cursor: pointer;
+  transition: background .12s, color .12s;
 }
-.drop:hover, .drop.over, .drop:focus-within { border-color: var(--accent); background: var(--accent-soft); }
-.drop strong { font: 600 20px/1.3 var(--font-display); display: block; }
-.drop span { color: var(--muted); font-size: 14px; }
+.drop strong { font: 700 22px/1.2 var(--font-display); font-stretch: 85%; text-transform: uppercase; letter-spacing: .02em; }
+.drop strong::before { content: "+ "; color: var(--red); }
+.drop span { color: var(--grey); font-size: 14px; }
+.drop:hover, .drop.over, .drop:has(input:focus-visible) { background: var(--ink); color: var(--paper); }
+.drop:hover span, .drop.over span, .drop:has(input:focus-visible) span { color: var(--paper); }
 .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.label { font: 600 13px/1 var(--font-display); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--rule); padding-bottom: 8px; margin-bottom: -24px; }
+.label { font: 500 12px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .12em; }
+.label b { color: var(--red); font-weight: 500; }
+.list { list-style: none; margin: 0; padding: 0; display: grid; }
 .item {
-  display: grid; grid-template-columns: auto 64px 1fr auto; align-items: center; gap: 12px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+  display: grid; grid-template-columns: auto 64px 1fr auto; align-items: center; gap: 14px;
+  border-bottom: 1px solid var(--hair); padding: 12px 0;
 }
-.item .num { font: 400 13px var(--font-mono); color: var(--muted); width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }
-.item img, .item .ph { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; background: var(--bg); display: block; }
-.item .ph { display: grid; place-items: center; font-size: 12px; color: var(--muted); }
+.item .num { font: 500 13px var(--font-mono); color: var(--grey); width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }
+.item img, .item .ph { width: 64px; height: 64px; object-fit: cover; display: block; background: var(--hair); filter: none; }
+.item .ph { display: grid; place-items: center; font: 500 14px var(--font-mono); color: var(--grey); }
+.item.err .ph { color: var(--red); }
 .item .meta { min-width: 0; }
 .item .name { font-weight: 700; overflow-wrap: anywhere; }
-.item .sub { font: 400 12px var(--font-mono); color: var(--muted); }
-.item .sub.err { color: var(--warn); font-family: var(--font-body); font-size: 13px; }
+.item .sub { font: 400 12px var(--font-mono); color: var(--grey); }
+.item .sub.err { color: var(--red); font-family: var(--font-body); font-size: 13px; }
 .item .tools { display: flex; gap: 4px; }
-.tag { font: 600 11px var(--font-display); text-transform: uppercase; letter-spacing: .06em; background: var(--accent-soft); color: var(--accent); padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+.tag { font: 500 10px var(--font-mono); text-transform: uppercase; letter-spacing: .1em; border: 1px solid var(--grey); color: var(--grey); padding: 1px 5px; margin-left: 8px; vertical-align: 2px; }
 button { font: inherit; cursor: pointer; }
 .icon-btn {
-  width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink);
-  display: grid; place-items: center; font-size: 16px; line-height: 1;
+  width: 34px; height: 34px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink);
+  display: grid; place-items: center; font-size: 15px; line-height: 1;
 }
-.icon-btn:disabled { opacity: .35; cursor: default; }
-.link-btn { background: none; border: 0; color: var(--accent); padding: 0; font-size: 14px; text-decoration: underline; }
-.settings { display: flex; flex-wrap: wrap; gap: 16px 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.icon-btn:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+.icon-btn.remove:hover:not(:disabled) { background: var(--red); border-color: var(--red); color: #fff; }
+.icon-btn:disabled { opacity: .25; cursor: default; }
+.link-btn { background: none; border: 0; color: var(--ink); padding: 0; font: 500 12px var(--font-mono); text-transform: uppercase; letter-spacing: .12em; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--red); }
+.settings { display: flex; flex-wrap: wrap; gap: 16px 32px; border-block: 1px solid var(--rule); padding-block: 16px; }
 .field { display: grid; gap: 6px; min-width: 0; }
-.field label { font-size: 14px; color: var(--muted); }
-select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.field label { font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: .12em; color: var(--grey); }
+select { font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 0; background: var(--paper); color: var(--ink); }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .btn {
-  border-radius: 10px; padding: 12px 18px; font-weight: 700; border: 1px solid var(--accent);
-  background: var(--accent); color: var(--accent-ink);
+  padding: 14px 22px; font: 700 15px var(--font-display); font-stretch: 90%; text-transform: uppercase; letter-spacing: .06em;
+  border: 2px solid var(--ink); background: var(--ink); color: var(--paper); border-radius: 0;
+  transition: background .12s, border-color .12s, color .12s;
 }
-.btn.secondary { background: transparent; color: var(--accent); }
-.btn:disabled { opacity: .45; cursor: default; }
-:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.status { min-height: 1.5em; color: var(--muted); font-size: 14px; }
-.status.err { color: var(--warn); }
-.help { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 16px; }
-.help h2 { font: 600 16px var(--font-display); color: var(--ink); margin: 0 0 6px; }
+.btn:hover:not(:disabled) { background: var(--red); border-color: var(--red); color: #fff; }
+.btn.secondary { background: var(--paper); color: var(--ink); }
+.btn.secondary:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.btn:disabled { opacity: .3; cursor: default; }
+:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+.status { min-height: 1.5em; font: 400 13px var(--font-mono); color: var(--grey); margin-top: -12px; }
+.status.err { color: var(--red); }
+.help { font-size: 14px; color: var(--grey); border-top: 3px solid var(--rule); padding-top: 16px; }
+.help h2 { font: 700 16px var(--font-display); font-stretch: 85%; text-transform: uppercase; letter-spacing: .04em; color: var(--ink); margin: 0 0 8px; }
 .help ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.help b { color: var(--ink); }
 @media (max-width: 480px) {
   .item { grid-template-columns: 52px 1fr; }
   .item .num { display: none; }
@@ -100,7 +113,7 @@ select { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid
 
 <main>
   <header>
-    <h1>HEIC to PDF</h1>
+    <h1>HEIC <span class="arrow">→</span> PDF</h1>
     <p>Turn iPhone photos (.heic) into a PDF, or into JPGs you can place in any PDF editor. Everything runs in your browser; your photos are never uploaded.</p>
   </header>
 
@@ -218,7 +231,7 @@ async function addFiles(files) {
 
 function render() {
   const ready = items.filter((it) => it.status === "ready");
-  $("list-label").textContent = items.length ? `Pages · ${ready.length} ready` : "Pages";
+  $("list-label").innerHTML = items.length ? `Pages · <b>${ready.length}</b> ready` : "Pages";
   $("clear-btn").hidden = !items.length;
   $("pdf-btn").disabled = !ready.length;
   $("jpg-btn").disabled = !ready.length;
@@ -226,7 +239,7 @@ function render() {
 
   listEl.replaceChildren(...items.map((it, i) => {
     const li = document.createElement("li");
-    li.className = "item";
+    li.className = "item" + (it.status === "error" ? " err" : "");
     const thumb = it.status === "ready"
       ? Object.assign(document.createElement("img"), { src: it.url, alt: "" })
       : Object.assign(document.createElement("div"), { className: "ph", textContent: it.status === "loading" ? "…" : "!" });
@@ -253,7 +266,7 @@ function render() {
     tools.append(
       mk("Move up", "↑", i === 0, () => move(i, -1)),
       mk("Move down", "↓", i === items.length - 1, () => move(i, 1)),
-      mk("Remove", "✕", false, () => remove(i)),
+      Object.assign(mk("Remove", "✕", false, () => remove(i)), { className: "icon-btn remove" }),
     );
     li.append(tools);
     return li;
@@ -348,7 +361,7 @@ drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove
 
 // Example pages so the first view shows how the list and output work.
 async function addExamples() {
-  const specs = [["IMG_4127.HEIC", 1200, 900, "#7fb8a8", "#2f5d53"], ["IMG_4130.HEIC", 900, 1200, "#d9b98a", "#6b4a2b"]];
+  const specs = [["IMG_4127.HEIC", 1200, 900, "#8a8a8a", "#1a1a1a"], ["IMG_4130.HEIC", 900, 1200, "#d6d6d6", "#555555"]];
   for (const [name, w, h, a, b] of specs) {
     const c = Object.assign(document.createElement("canvas"), { width: w, height: h });
     const ctx = c.getContext("2d");

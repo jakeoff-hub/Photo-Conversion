@@ -29,6 +29,7 @@
   --red: #ff2b1f; --on-ink: #0a0a0a; color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0; background: var(--paper); color: var(--ink);
   font: 400 16px/1.5 var(--font-body);
@@ -108,29 +109,51 @@ select { font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border
   .item img, .item .ph { width: 52px; height: 52px; }
   .item .tools { grid-column: 1 / -1; justify-content: flex-end; }
 }
+.formats { position: relative; display: flex; flex-wrap: wrap; gap: 0; border: 2px solid var(--rule); width: fit-content; max-width: 100%; }
+.formats input { position: absolute; opacity: 0; pointer-events: none; }
+.formats label {
+  padding: 10px 18px; font: 700 14px var(--font-display); font-stretch: 90%; letter-spacing: .08em; text-transform: uppercase;
+  cursor: pointer; border-right: 1px solid var(--rule); color: var(--ink); background: var(--paper);
+}
+.formats label:last-of-type { border-right: 0; }
+.formats input:checked + label { background: var(--ink); color: var(--paper); }
+.formats input:checked + label::after { content: ""; display: inline-block; width: 6px; height: 6px; background: var(--red); margin-left: 8px; vertical-align: 2px; }
+.formats input:focus-visible + label { outline: 3px solid var(--red); outline-offset: -3px; }
+.format-hint { font: 400 13px var(--font-mono); color: var(--grey); margin: 0; }
+.type { font-weight: 500; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
 <main>
   <header>
     <h1>HEIC <span class="arrow">→</span> PDF</h1>
-    <p>Turn iPhone photos (.heic) into a PDF, or into JPGs you can place in any PDF editor. Everything runs in your browser; your photos are never uploaded.</p>
+    <p>Turn iPhone photos, and almost any other image, into a PDF, JPG, PNG or WebP. Everything runs in your browser; your photos are never uploaded.</p>
   </header>
 
   <label class="drop" id="drop">
-    <input id="file-input" type="file" multiple accept=".heic,.heif,image/heic,image/heif,image/jpeg,image/png,image/webp">
+    <input id="file-input" type="file" multiple accept="image/*,.heic,.heif,.hif,.avif,.tif,.tiff,.bmp,.gif,.webp">
     <strong>Add photos</strong>
-    <span>Drop .heic files here, or tap to choose. JPG and PNG work too.</span>
+    <span>Drop files here, or tap to choose. HEIC, JPG, PNG, WebP, GIF, BMP, TIFF and AVIF all work.</span>
   </label>
 
   <section class="section-head">
-    <span class="label" id="list-label">Pages</span>
+    <span class="label" id="list-label">Photos</span>
     <button class="link-btn" id="clear-btn" type="button">Clear all</button>
   </section>
   <ol class="list" id="list"></ol>
 
-  <section class="settings" aria-label="PDF settings">
+  <section class="settings" aria-label="Output settings">
     <div class="field">
+      <span class="label" id="format-label">Save as</span>
+      <div class="formats" role="radiogroup" aria-labelledby="format-label">
+        <input type="radio" name="format" id="fmt-pdf" value="pdf" checked><label for="fmt-pdf">PDF</label>
+        <input type="radio" name="format" id="fmt-jpg" value="jpg"><label for="fmt-jpg">JPG</label>
+        <input type="radio" name="format" id="fmt-png" value="png"><label for="fmt-png">PNG</label>
+        <input type="radio" name="format" id="fmt-webp" value="webp"><label for="fmt-webp">WebP</label>
+      </div>
+      <p class="format-hint" id="format-hint"></p>
+    </div>
+    <div class="field" data-pdf-only>
       <label for="page-size">Page size</label>
       <select id="page-size">
         <option value="fit">Same size as photo</option>
@@ -138,7 +161,7 @@ select { font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border
         <option value="a4">A4 (210 × 297 mm)</option>
       </select>
     </div>
-    <div class="field">
+    <div class="field" data-pdf-only>
       <label for="margin">Margin (Letter/A4)</label>
       <select id="margin">
         <option value="0">None</option>
@@ -150,19 +173,18 @@ select { font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border
   </section>
 
   <div class="actions">
-    <button class="btn" id="pdf-btn" type="button">Download PDF</button>
-    <button class="btn secondary" id="jpg-btn" type="button">Download JPG</button>
+    <button class="btn" id="save-btn" type="button">Download PDF</button>
   </div>
   <div class="status" id="status" role="status" aria-live="polite"></div>
 
   <section class="help">
     <h2>Putting a photo into an existing PDF</h2>
     <ol>
-      <li>Add your .heic photo above and choose <b>Download JPG</b>.</li>
+      <li>Add your photo above, pick <b>JPG</b> or <b>PNG</b>, and download it.</li>
       <li>Open your PDF in Adobe Acrobat, Preview (Mac), or a web editor such as Smallpdf or Sejda.</li>
-      <li>Use its <i>Add image</i> or <i>Insert image</i> tool and pick the JPG.</li>
+      <li>Use its <i>Add image</i> or <i>Insert image</i> tool and pick the file.</li>
     </ol>
-    <p>To attach photos as extra pages instead, choose <b>Download PDF</b> and merge it with your document.</p>
+    <p>To attach photos as extra pages instead, pick <b>PDF</b> and merge the result with your document.</p>
   </section>
 </main>
 
@@ -173,69 +195,124 @@ select { font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border
 const $ = (id) => document.getElementById(id);
 const listEl = $("list"), statusEl = $("status");
 const PAGE_PT = { letter: [612, 792], a4: [595.28, 841.89] };
-let items = [];        // { id, name, status: 'loading'|'ready'|'error', jpeg: Blob, url, w, h, error, example }
+const FORMATS = {
+  pdf:  { label: "PDF",  hint: "One photo per page, in the order shown." },
+  jpg:  { label: "JPG",  mime: "image/jpeg", hint: "Works everywhere. Best for inserting into a PDF or email." },
+  png:  { label: "PNG",  mime: "image/png",  hint: "No quality loss. Larger files." },
+  webp: { label: "WebP", mime: "image/webp", hint: "Small files for websites. Some older apps can't open it." },
+};
+// Each item: { id, name, type, size, status: 'loading'|'ready'|'error', src: Blob the browser can draw,
+//              original: File, jpeg: Blob, url, w, h, error, example }
+let items = [];
 let nextId = 1;
 
-const isHeic = (f) => /\.(heic|heif|hif)$/i.test(f.name) || /heic|heif/i.test(f.type);
 const baseName = (n) => n.replace(/\.[^.]+$/, "");
 const fmtSize = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+const currentFormat = () => document.querySelector('input[name="format"]:checked').value;
 
 function setStatus(msg, isErr = false) {
   statusEl.textContent = msg;
   statusEl.classList.toggle("err", isErr);
 }
 
-// Decode any supported file to an upright JPEG blob.
-async function toJpeg(file) {
-  let source = null;
-  try {
-    source = await createImageBitmap(file); // Safari decodes HEIC natively
-  } catch (_) {
-    if (!isHeic(file)) throw new Error("This file is not an image the browser can read.");
-    if (typeof heic2any !== "function") throw new Error("The HEIC decoder did not load. Check your connection and reload.");
-    let out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.92 });
-    if (Array.isArray(out)) out = out[0];
-    source = await createImageBitmap(out);
+// Identify a file by its first bytes, so a mislabeled extension doesn't matter.
+async function sniffType(file) {
+  const b = new Uint8Array(await file.slice(0, 32).arrayBuffer());
+  const str = (from, to) => String.fromCharCode(...b.slice(from, to));
+  if (b[0] === 0xff && b[1] === 0xd8) return "JPG";
+  if (str(1, 4) === "PNG") return "PNG";
+  if (str(0, 3) === "GIF") return "GIF";
+  if (str(0, 4) === "RIFF" && str(8, 12) === "WEBP") return "WEBP";
+  if (str(0, 2) === "BM") return "BMP";
+  if (str(0, 4) === "II*\0" || str(0, 4) === "MM\0*") return "TIFF";
+  if (str(4, 8) === "ftyp") {
+    const brand = str(8, 12);
+    if (/^avi[fs]$/.test(brand)) return "AVIF";
+    if (/^(hei[cxms]|hev[cxms]|mif1|msf1)$/.test(brand)) return "HEIC";
   }
-  const canvas = document.createElement("canvas");
-  canvas.width = source.width; canvas.height = source.height;
+  const ext = (file.name.match(/\.([^.]+)$/) || [])[1];
+  return ext ? ext.toUpperCase() : "?";
+}
+
+const loaded = {};
+function loadScript(url) {
+  return loaded[url] ??= new Promise((res, rej) => {
+    const s = Object.assign(document.createElement("script"), { src: url, onload: res, onerror: () => rej(new Error("A decoder did not load. Check your connection and reload.")) });
+    document.head.append(s);
+  });
+}
+
+// Turn any supported file into { src: Blob the browser can draw, bitmap }.
+async function decode(file, type) {
+  try {
+    return { src: file, bitmap: await createImageBitmap(file) }; // native: JPG, PNG, GIF, WebP, BMP, AVIF; HEIC/TIFF on Safari
+  } catch (_) { /* fall through to library decoders */ }
+  if (type === "HEIC") {
+    if (typeof heic2any !== "function") throw new Error("The HEIC decoder did not load. Check your connection and reload.");
+    let out = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.95 });
+    if (Array.isArray(out)) out = out[0];
+    return { src: out, bitmap: await createImageBitmap(out) };
+  }
+  if (type === "TIFF") {
+    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js");
+    await loadScript("https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js");
+    const buf = await file.arrayBuffer();
+    const ifd = UTIF.decode(buf)[0];
+    UTIF.decodeImage(buf, ifd);
+    const rgba = new Uint8ClampedArray(UTIF.toRGBA8(ifd));
+    const c = Object.assign(document.createElement("canvas"), { width: ifd.width, height: ifd.height });
+    c.getContext("2d").putImageData(new ImageData(rgba, ifd.width, ifd.height), 0, 0);
+    const src = await new Promise((r) => c.toBlob(r, "image/png"));
+    return { src, bitmap: await createImageBitmap(src) };
+  }
+  throw new Error(type === "AVIF" ? "This browser can't read AVIF. Try Chrome, Edge, Firefox or Safari 16+." : "This file isn't an image this page can read.");
+}
+
+async function encode(source, mime, w, h) {
+  const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (mime === "image/jpeg") { ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); } // JPG has no transparency
   ctx.drawImage(source, 0, 0);
-  source.close?.();
-  const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.92));
-  return { blob, w: canvas.width, h: canvas.height };
+  const blob = await new Promise((r) => canvas.toBlob(r, mime, 0.92));
+  if (!blob || blob.type !== mime) throw new Error(`This browser can't save ${mime.split("/")[1].toUpperCase()} files. Try another format.`);
+  return blob;
 }
 
 async function addFiles(files) {
   files = [...files];
   if (!files.length) return;
   if (items.some((it) => it.example)) items = [];
-  const added = files.map((f) => ({ id: nextId++, name: f.name, status: "loading", file: f }));
+  const added = files.map((f) => ({ id: nextId++, name: f.name, size: f.size, status: "loading", original: f }));
   items.push(...added);
   render();
-  setStatus(`Converting ${added.length} photo${added.length > 1 ? "s" : ""}…`);
+  setStatus(`Reading ${added.length} photo${added.length > 1 ? "s" : ""}…`);
   for (const it of added) {
     try {
-      const { blob, w, h } = await toJpeg(it.file);
-      Object.assign(it, { status: "ready", jpeg: blob, url: URL.createObjectURL(blob), w, h });
+      it.type = await sniffType(it.original);
+      const { src, bitmap } = await decode(it.original, it.type);
+      const jpeg = await encode(bitmap, "image/jpeg", bitmap.width, bitmap.height);
+      Object.assign(it, { status: "ready", src, jpeg, url: URL.createObjectURL(jpeg), w: bitmap.width, h: bitmap.height });
+      bitmap.close?.();
     } catch (e) {
       Object.assign(it, { status: "error", error: e.message || "Could not read this file." });
     }
-    delete it.file;
     render();
   }
   const bad = added.filter((it) => it.status === "error").length;
-  setStatus(bad ? `${bad} file${bad > 1 ? "s" : ""} could not be converted.` : "Ready.", !!bad);
+  setStatus(bad ? `${bad} file${bad > 1 ? "s" : ""} could not be read.` : "Ready.", !!bad);
 }
 
 function render() {
-  const ready = items.filter((it) => it.status === "ready");
-  $("list-label").innerHTML = items.length ? `Pages · <b>${ready.length}</b> ready` : "Pages";
+  const ready = readyItems();
+  const fmt = currentFormat();
+  $("list-label").innerHTML = items.length ? `Photos · <b>${ready.length}</b> ready` : "Photos";
   $("clear-btn").hidden = !items.length;
-  $("pdf-btn").disabled = !ready.length;
-  $("jpg-btn").disabled = !ready.length;
-  $("jpg-btn").textContent = ready.length > 1 ? "Download JPGs (.zip)" : "Download JPG";
+  $("format-hint").textContent = FORMATS[fmt].hint;
+  document.querySelectorAll("[data-pdf-only]").forEach((el) => { el.hidden = fmt !== "pdf"; });
+  const btn = $("save-btn");
+  btn.disabled = !ready.length;
+  btn.textContent = fmt === "pdf" ? "Download PDF"
+    : ready.length > 1 ? `Download ${ready.length} ${FORMATS[fmt].label}s (.zip)` : `Download ${FORMATS[fmt].label}`;
 
   listEl.replaceChildren(...items.map((it, i) => {
     const li = document.createElement("li");
@@ -243,8 +320,6 @@ function render() {
     const thumb = it.status === "ready"
       ? Object.assign(document.createElement("img"), { src: it.url, alt: "" })
       : Object.assign(document.createElement("div"), { className: "ph", textContent: it.status === "loading" ? "…" : "!" });
-    const sub = it.status === "ready" ? `${it.w} × ${it.h} px · ${fmtSize(it.jpeg.size)}`
-      : it.status === "loading" ? "Converting…" : it.error;
     li.innerHTML = `<span class="num">${i + 1}</span>`;
     li.append(thumb);
     const meta = document.createElement("div");
@@ -253,12 +328,19 @@ function render() {
     name.className = "name";
     name.textContent = it.name;
     if (it.example) name.append(Object.assign(document.createElement("span"), { className: "tag", textContent: "Example" }));
-    meta.append(name, Object.assign(document.createElement("div"), { className: "sub" + (it.status === "error" ? " err" : ""), textContent: sub }));
+    const sub = document.createElement("div");
+    sub.className = "sub" + (it.status === "error" ? " err" : "");
+    if (it.status === "ready") {
+      sub.append(Object.assign(document.createElement("span"), { className: "type", textContent: it.type }), ` · ${it.w} × ${it.h} px · ${fmtSize(it.size)}`);
+    } else {
+      sub.textContent = it.status === "loading" ? "Reading…" : it.error;
+    }
+    meta.append(name, sub);
     li.append(meta);
     const tools = document.createElement("div");
     tools.className = "tools";
-    const mk = (label, text, disabled, fn) => {
-      const b = Object.assign(document.createElement("button"), { type: "button", className: "icon-btn", textContent: text, disabled });
+    const mk = (label, text, disabled, fn, cls = "icon-btn") => {
+      const b = Object.assign(document.createElement("button"), { type: "button", className: cls, textContent: text, disabled });
       b.setAttribute("aria-label", `${label} ${it.name}`);
       b.onclick = fn;
       return b;
@@ -266,7 +348,7 @@ function render() {
     tools.append(
       mk("Move up", "↑", i === 0, () => move(i, -1)),
       mk("Move down", "↓", i === items.length - 1, () => move(i, 1)),
-      Object.assign(mk("Remove", "✕", false, () => remove(i)), { className: "icon-btn remove" }),
+      mk("Remove", "✕", false, () => remove(i), "icon-btn remove"),
     );
     li.append(tools);
     return li;
@@ -292,65 +374,82 @@ async function saveFile(filename, blob) {
   return true;
 }
 
-const readyItems = () => items.filter((it) => it.status === "ready");
+function readyItems() { return items.filter((it) => it.status === "ready"); }
 const outName = (ext) => { const r = readyItems(); return (r.length === 1 ? baseName(r[0].name) : "photos") + "." + ext; };
 
-$("pdf-btn").onclick = async () => {
-  const pages = readyItems();
+async function buildPdf(pages) {
   const size = $("page-size").value, marginPt = parseFloat($("margin").value) * 72;
-  try {
-    setStatus("Building PDF…");
-    const { jsPDF } = window.jspdf;
-    let doc;
-    for (const it of pages) {
-      const bytes = new Uint8Array(await it.jpeg.arrayBuffer());
-      let pw, ph, m = 0;
-      if (size === "fit") {
-        pw = it.w * 0.75; ph = it.h * 0.75;            // 96 px per inch
-        const scale = Math.min(1, 14000 / Math.max(pw, ph)); // PDF page limit
-        pw *= scale; ph *= scale;
-      } else {
-        [pw, ph] = PAGE_PT[size];
-        if (it.w > it.h) [pw, ph] = [ph, pw];
-        m = marginPt;
-      }
-      const orient = pw > ph ? "l" : "p";
-      if (!doc) doc = new jsPDF({ unit: "pt", format: [pw, ph], orientation: orient, compress: true });
-      else doc.addPage([pw, ph], orient);
-      const s = Math.min((pw - 2 * m) / it.w, (ph - 2 * m) / it.h);
-      const iw = it.w * s, ih = it.h * s;
-      doc.addImage(bytes, "JPEG", (pw - iw) / 2, (ph - ih) / 2, iw, ih);
+  const { jsPDF } = window.jspdf;
+  let doc;
+  for (const it of pages) {
+    const bytes = new Uint8Array(await it.jpeg.arrayBuffer());
+    let pw, ph, m = 0;
+    if (size === "fit") {
+      pw = it.w * 0.75; ph = it.h * 0.75;                  // 96 px per inch
+      const scale = Math.min(1, 14000 / Math.max(pw, ph)); // PDF page limit
+      pw *= scale; ph *= scale;
+    } else {
+      [pw, ph] = PAGE_PT[size];
+      if (it.w > it.h) [pw, ph] = [ph, pw];
+      m = marginPt;
     }
-    const saved = await saveFile(outName("pdf"), doc.output("blob"));
-    setStatus(saved ? `PDF ready: ${pages.length} page${pages.length > 1 ? "s" : ""}.` : "Download cancelled.");
-  } catch (e) {
-    setStatus("Could not build the PDF: " + (e.message || e.code || e), true);
+    const orient = pw > ph ? "l" : "p";
+    if (!doc) doc = new jsPDF({ unit: "pt", format: [pw, ph], orientation: orient, compress: true });
+    else doc.addPage([pw, ph], orient);
+    const s = Math.min((pw - 2 * m) / it.w, (ph - 2 * m) / it.h);
+    const iw = it.w * s, ih = it.h * s;
+    doc.addImage(bytes, "JPEG", (pw - iw) / 2, (ph - ih) / 2, iw, ih);
   }
-};
+  return doc.output("blob");
+}
 
-$("jpg-btn").onclick = async () => {
-  const pages = readyItems();
+// Produce one image in the chosen format, reusing the original file when it already matches.
+async function exportImage(it, fmt) {
+  const same = { jpg: "JPG", png: "PNG", webp: "WEBP" }[fmt] === it.type;
+  if (same && it.original) return it.original;
+  if (fmt === "jpg") return it.jpeg;
+  const bitmap = await createImageBitmap(it.src);
+  try { return await encode(bitmap, FORMATS[fmt].mime, bitmap.width, bitmap.height); }
+  finally { bitmap.close?.(); }
+}
+
+$("save-btn").onclick = async () => {
+  const pages = readyItems(), fmt = currentFormat();
   try {
     let blob, name;
-    if (pages.length === 1) {
-      blob = pages[0].jpeg; name = outName("jpg");
+    if (fmt === "pdf") {
+      setStatus("Building PDF…");
+      blob = await buildPdf(pages); name = outName("pdf");
+    } else if (pages.length === 1) {
+      setStatus(`Converting to ${FORMATS[fmt].label}…`);
+      blob = await exportImage(pages[0], fmt); name = outName(fmt);
     } else {
-      setStatus("Zipping JPGs…");
       const zip = new JSZip(), used = new Set();
-      for (const it of pages) {
-        let n = baseName(it.name), k = 2;
-        while (used.has(n)) n = `${baseName(it.name)}-${k++}`;
-        used.add(n);
-        zip.file(n + ".jpg", it.jpeg);
+      for (const [n, it] of pages.entries()) {
+        setStatus(`Converting ${n + 1} of ${pages.length} to ${FORMATS[fmt].label}…`);
+        let base = baseName(it.name), k = 2;
+        while (used.has(base)) base = `${baseName(it.name)}-${k++}`;
+        used.add(base);
+        zip.file(`${base}.${fmt}`, await exportImage(it, fmt));
       }
+      setStatus("Zipping…");
       blob = await zip.generateAsync({ type: "blob" }); name = "photos.zip";
     }
     const saved = await saveFile(name, blob);
-    setStatus(saved ? `Saved ${name}.` : "Download cancelled.");
+    setStatus(saved ? `Saved ${name} (${fmtSize(blob.size)}).` : "Download cancelled.");
   } catch (e) {
     setStatus("Could not save: " + (e.message || e.code || e), true);
   }
 };
+
+document.querySelectorAll('input[name="format"]').forEach((r) => r.addEventListener("change", () => {
+  try { localStorage.setItem("heic-format", currentFormat()); } catch (_) {}
+  render();
+}));
+try {
+  const saved = localStorage.getItem("heic-format");
+  if (saved && FORMATS[saved]) $("fmt-" + saved).checked = true;
+} catch (_) {}
 
 $("clear-btn").onclick = () => { items.forEach((it) => it.url && URL.revokeObjectURL(it.url)); items = []; render(); setStatus(""); };
 $("file-input").onchange = (e) => { addFiles(e.target.files); e.target.value = ""; };
@@ -359,7 +458,7 @@ drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.ad
 drop.addEventListener("dragleave", () => drop.classList.remove("over"));
 drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); });
 
-// Example pages so the first view shows how the list and output work.
+// Example photos so the first view shows how the list and output work.
 async function addExamples() {
   const specs = [["IMG_4127.HEIC", 1200, 900, "#8a8a8a", "#1a1a1a"], ["IMG_4130.HEIC", 900, 1200, "#d6d6d6", "#555555"]];
   for (const [name, w, h, a, b] of specs) {
@@ -370,10 +469,10 @@ async function addExamples() {
     ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.font = `bold ${w / 10}px sans-serif`; ctx.textAlign = "center";
     ctx.fillText("Example", w / 2, h / 2);
     const jpeg = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.9));
-    items.push({ id: nextId++, name, status: "ready", jpeg, url: URL.createObjectURL(jpeg), w, h, example: true });
+    items.push({ id: nextId++, name, type: "HEIC", size: jpeg.size, status: "ready", src: jpeg, jpeg, url: URL.createObjectURL(jpeg), w, h, example: true });
   }
   render();
-  setStatus("Showing two example pages. Add your own photos to replace them.");
+  setStatus("Showing two example photos. Add your own to replace them.");
 }
 render();
 addExamples();

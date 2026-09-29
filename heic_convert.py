@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert HEIC/HEIF photos to JPG/PNG, or combine them into a PDF.
+"""Convert HEIC/HEIF photos (or any common image) to JPG/PNG/WebP, or combine them into a PDF.
 
 Examples:
     # One PDF with every photo on its own page
@@ -22,7 +22,9 @@ from pillow_heif import register_heif_opener
 register_heif_opener()
 
 HEIC_SUFFIXES = {".heic", ".heif", ".hif"}
-IMAGE_SUFFIXES = HEIC_SUFFIXES | {".jpg", ".jpeg", ".png", ".webp"}
+IMAGE_SUFFIXES = HEIC_SUFFIXES | {
+    ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif",
+}
 
 # Page sizes in points (1/72 inch), portrait.
 PAGE_SIZES = {
@@ -82,14 +84,17 @@ def to_pdf(files, output, page, margin, quality):
 
 
 def to_images(files, fmt, outdir, quality):
-    ext = "jpg" if fmt == "jpg" else "png"
     for path in files:
         target_dir = outdir or path.parent
         target_dir.mkdir(parents=True, exist_ok=True)
-        target = target_dir / f"{path.stem}.{ext}"
+        target = target_dir / f"{path.stem}.{fmt}"
+        if target.resolve() == path.resolve():
+            target = target_dir / f"{path.stem}-converted.{fmt}"
         img = load_image(path)
         if fmt == "jpg":
             img.save(target, "JPEG", quality=quality)
+        elif fmt == "webp":
+            img.save(target, "WEBP", quality=quality)
         else:
             img.save(target, "PNG")
         print(f"wrote {target}")
@@ -97,15 +102,15 @@ def to_images(files, fmt, outdir, quality):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Convert HEIC photos to JPG/PNG or combine them into a PDF."
+        description="Convert HEIC (or any common image) to JPG/PNG/WebP, or combine images into a PDF."
     )
-    parser.add_argument("inputs", nargs="+", help="HEIC files or folders containing them")
+    parser.add_argument("inputs", nargs="+", help="image files, or folders containing them")
     parser.add_argument(
         "--format",
-        choices=["pdf", "jpg", "png"],
+        choices=["pdf", "jpg", "png", "webp"],
         help="output type (default: pdf if -o ends in .pdf, otherwise jpg)",
     )
-    parser.add_argument("-o", "--output", help="PDF file to write, or folder for jpg/png output")
+    parser.add_argument("-o", "--output", help="PDF file to write, or folder for jpg/png/webp output")
     parser.add_argument(
         "--page",
         choices=["original", "letter", "a4"],

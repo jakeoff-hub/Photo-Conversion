@@ -1,4 +1,4 @@
-# HEIC Conversion
+# Photo Conversion
 
 Convert iPhone photos (`.heic` / `.heif`) and other common images so you can put
 them in a PDF, either as pages of a new PDF or as images you insert into an
